@@ -12,4 +12,3 @@ c.openai.api_key = "123456"
 c.loop.db_path = "wx_secret2.db"
 c.loop.max_wait_time = 15
 c.loop.memory = 10
-

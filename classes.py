@@ -5,15 +5,18 @@
 
 __all__ = ['Configure']
 
-class OpenAIConfig:
+from pydantic import BaseModel
+
+class BaseConfig(BaseModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class OpenAIConfig(BaseConfig):
     api_key: str = '<None>'
     api_base: str = 'https://api.openai.com/v1'
-    def __init__(self, *args, **kwargs):
-        for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
+        
     
-class ContextConfig:
+class ContextConfig(BaseConfig):
     model: str = 'gpt-4'
     max_tokens: int = 100
     temperature: float = 0.7
@@ -22,28 +25,13 @@ class ContextConfig:
     presence_penalty: float = 0.0
     stop: list = ['\n']
     stream: bool = False
-    def __init__(self, *args, **kwargs):
-        for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
     
-class LoopConfig:
+class LoopConfig(BaseConfig):
     db_path: str = 'wx_secret.db'
     memory: int = 10
     max_wait_time: int = 10
-    def __init__(self, *args, **kwargs):
-        for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
 
-class Configure:
+class Configure(BaseConfig):
     openai: OpenAIConfig = OpenAIConfig()
     context: ContextConfig = ContextConfig()
     loop: LoopConfig = LoopConfig()
-    def __init__(self, *args, **kwargs):
-        for k, v in kwargs.items():
-            if hasattr(self, k):
-                setattr(self, k, v)
-    
-    def __repr__(self) -> str:
-        return f'<Configure Info>'

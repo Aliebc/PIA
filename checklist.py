@@ -8,6 +8,8 @@ try:
     concurrent = __import__('concurrent')
     multiprocessing = __import__('multiprocessing')
     fastapi = __import__('fastapi')
+    pydantic = __import__('pydantic')
+    rich = __import__('rich')
 except ImportError as e:
     print("ImportError: ", e)
     exit(1)
