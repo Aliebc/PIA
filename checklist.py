@@ -7,6 +7,7 @@ try:
     sqlite3 = __import__('sqlite3')
     concurrent = __import__('concurrent')
     multiprocessing = __import__('multiprocessing')
+    multiprocess = __import__('multiprocess')
     fastapi = __import__('fastapi')
     pydantic = __import__('pydantic')
     rich = __import__('rich')
