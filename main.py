@@ -65,6 +65,11 @@ def daemon():
     if not hasattr(os, 'fork'):
         print('DaemonError: Your system does not support daemon mode.')
         sys.exit(1)
+    pd = os.fork()
+    if pd > 0:
+        sys.exit(0)
+    os.close(0)
+    os.close(1)
         
 def show_version():
     print('Version: PIA-Core/{}'.format(__version__))
@@ -285,21 +290,29 @@ def listener_call(message: PIAMessage, listener: PIAListener):
         '''
     )
     db.commit()
-    
-    db.execute(
-        '''
-        INSERT INTO chat_{} (NAME, TEXT, TIME, IS_MENTIONED, IS_ME, IS_AI, LISTENER) VALUES (?, ?, ?, ?, ?, ?, ?)
-        '''.format(message.uid),
-        (
-            message.uname,
-            message.text,
-            message.timestamp,
-            0,
-            0,
-            0,
-            listener.m_name
+    if message.type == 0:
+        db.execute(
+            '''
+            INSERT INTO chat_{} (NAME, TEXT, TIME, IS_MENTIONED, IS_ME, IS_AI, LISTENER) VALUES (?, ?, ?, ?, ?, ?, ?)
+            '''.format(message.uid),
+            (
+                message.uname,
+                message.text,
+                message.timestamp,
+                0,
+                0,
+                message.is_ai,
+                listener.m_name
+            )
         )
-    )
+    elif message.type == 8:
+        if message.text == 'clear':
+            db.execute(
+                '''
+                UPDATE chat_{} SET IS_DELETED = 1
+                '''.format(message.uid)
+            )
+        
     db.commit()
     
     db.execute(
@@ -315,6 +328,39 @@ def listener_call(message: PIAMessage, listener: PIAListener):
     db.commit()
     db.close()
     return 'OK'
+
+def module_call(module: PIAModule, response: PIAResponse, direct: bool = True):
+    message: PIAResponseMessage
+    db = sqlite3.connect(g_settings.c.loop.db_path)
+    cur = db.cursor()
+    cur.execute(
+        '''
+        SELECT UID,UNAME,LISTENER FROM pia_listener WHERE UID = '{}'
+        '''.format(response.t_uid)
+    )
+    df = cur.fetchall()
+    if len(df) == 0:
+        return False
+    tname = df[0][0]
+    for message in response.messages:
+        if message.type == 0:
+            db.execute(
+                '''
+                INSERT INTO chat_{} (NAME, TEXT, TIME, IS_MENTIONED, IS_ME, IS_AI, LISTENER) VALUES (?, ?, ?, ?, ?, ?, ?)
+                '''.format(tname),
+                (
+                    message.uname,
+                    message.text,
+                    message.timestamp,
+                    0,
+                    1 if direct else 0,
+                    1,
+                    module.m_name
+                )
+            )
+            db.commit()
+    db.close()
+    return True
 
 def sig_exit(signum, frame):
     for l in g_settings.listeners:
@@ -425,6 +471,8 @@ if __name__ == '__main__':
     
     for l in g_settings.listeners:
         l.set_call(listener_call)
+    for m in g_settings.modules:
+        m.set_call(module_call)
     g_settings.listeners_process = [l.run() for l in g_settings.listeners]
     g_settings.modules_process = [m.run() for m in g_settings.modules]
     mainl = Process(target=main_loop, args=(g_settings,))

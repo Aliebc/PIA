@@ -114,6 +114,7 @@ class PIAModule(BaseModel):
     function_lists: dict = {}
     mainloop_handler:Callable = lambda *args, **kwargs: None
     mainloop_args: list = []
+    i_callback:Callable = lambda *args, **kwargs: None
     ps: list = []
     def __init__(self, 
         m_name = '',
@@ -204,11 +205,14 @@ class PIAModule(BaseModel):
             ps = None
         return True
     
-    def callback(self):
-        pass
+    def callback(self, response: PIAResponse, direct:bool = True):
+        return self.i_callback(self, response, direct)
     
     def set_args(self, args:list):
         self.mainloop_args = args
+        
+    def set_call(self, callback:Callable):
+        self.i_callback = callback
         
 class PIAListener(BaseModel):
     m_name: str
