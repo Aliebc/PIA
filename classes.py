@@ -26,6 +26,8 @@ class ContextConfig(BaseConfig):
     frequency_penalty: float = 0.0
     presence_penalty: float = 0.0
     stop: list = ['\n']
+    system_prompt: str = ''
+    error_format: str = '{}'
     stream: bool = False
     
 class LoopConfig(BaseConfig):
@@ -33,6 +35,7 @@ class LoopConfig(BaseConfig):
     memory: int = 10
     max_wait_time: int = 10
     interval: int = 3
+    max_workers: int = 10
 
 class Configure(BaseConfig):
     openai: OpenAIConfig = OpenAIConfig()
@@ -87,6 +90,7 @@ class PIAResponseMessage(BaseModel):
 
 class PIAResponse(BaseModel):
     t_uid: str = Field(None, alias='t_uid', pattern=r'^[a-zA-Z0-9_]+$')
+    t_uname: str = Field(None, alias='t_uname', min_length=1, max_length=100)
     messages: List[PIAResponseMessage] = Field(None, alias='messages')
 
 class PIAModule(BaseModel):
@@ -110,6 +114,7 @@ class PIAModule(BaseModel):
     function_lists: dict = {}
     mainloop_handler:Callable = lambda *args, **kwargs: None
     mainloop_args: list = []
+    ps: list = []
     def __init__(self, 
         m_name = '',
         author = '',
@@ -121,10 +126,10 @@ class PIAModule(BaseModel):
         super().__init__(*args, **kwargs)
     
     def __str__(self):
-        return 'PIAModule({} by {})'.format(self.m_name, self.author)
+        return 'PIAModule({}/{}, {})'.format(self.m_name, self.version, self.author)
     
     def __repr__(self) -> str:
-        return super().__repr__()
+        return self.__str__()
 
     def register(
         self, 
@@ -166,11 +171,38 @@ class PIAModule(BaseModel):
             return func
         return wrapper
     
-    def mainloop(self, max_args = 10, keep_alive = True, *args, **kwargs):
+    def mainloop(self, keep_alive = True, *args, **kwargs):
         def wrapper(func):
             self.mainloop_handler = func
+            if keep_alive:
+                def wrapper2(*args, **kwargs):
+                    while True:
+                        try:
+                            st = func(*args, **kwargs)
+                            if st == False:
+                                break
+                        except Exception as e:
+                            print(e)
+                        except ...:
+                            pass
+                self.mainloop_handler = wrapper2
             return func
         return wrapper
+    
+    def run(self):
+        ps = Process(target=self.mainloop_handler, args=(self.mainloop_args,))
+        ps.start()
+        self.ps.append(ps)
+        return ps
+    
+    def stop(self):
+        if len(self.ps) == 0:
+            return False
+        ps : Process = self.ps[-1]
+        if ps:
+            ps.terminate()
+            ps = None
+        return True
     
     def callback(self):
         pass
@@ -182,6 +214,7 @@ class PIAListener(BaseModel):
     m_name: str
     author: str
     version: str = '0.0.1'
+    uuid: str = ''
     i_callback:Callable = lambda *args, **kwargs: None
     i_sender:Callable = lambda *args, **kwargs: None
     i_mainloop:Callable = lambda *args, **kwargs: None
@@ -189,13 +222,15 @@ class PIAListener(BaseModel):
     mainloop_args: list = []
     ps: list = []
     def __init__(self, 
+        uuid,
         m_name = '',
         author = '',
-        version = '0.0.1', 
+        version = '0.0.1',
     *args, **kwargs):
         kwargs['m_name'] = m_name
         kwargs['author'] = author
         kwargs['version'] = version
+        kwargs['uuid'] = uuid
         super().__init__(*args, **kwargs)
         
     def __repr__(self) -> str:
@@ -229,8 +264,6 @@ class PIAListener(BaseModel):
                                 break
                         except Exception as e:
                             print(e)
-                        except ...:
-                            pass
                 self.i_mainloop = wrapper2
                 return func
             return func
@@ -244,15 +277,16 @@ class PIAListener(BaseModel):
         
     def run(self):
         ps = Process(target=self.i_mainloop, args=(self.mainloop_args,))
-        ps.start()
         self.ps.append(ps)
+        ps.start()
         return ps
     
     def stop(self):
-        ps = self.ps[-1]
+        if len(self.ps) == 0:
+            return False
+        ps : Process = self.ps[-1]
         if ps:
             ps.terminate()
-            ps.join()
             ps = None
         return True
     

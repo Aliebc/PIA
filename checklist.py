@@ -16,3 +16,7 @@ except ImportError as e:
     exit(1)
 
 ck = True
+
+'''
+pip install openai multiprocess fastapi pydantic rich requests uvicorn python-multipart
+'''

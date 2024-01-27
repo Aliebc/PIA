@@ -1,4 +1,4 @@
-from classes import PIAListener, PIAMessage, PIAResponseMessage
+from classes import PIAListener, PIAMessage, PIAResponseMessage, PIAResponse
 from getopt import GetoptError,getopt
 import socket
 import time
@@ -11,6 +11,7 @@ def md5s(s):
     return m.hexdigest()
 
 app = PIAListener(
+    uuid = 'dbdca259-6dc9-40cb-b232-0861ec4888d5',
     m_name='PIA Socket Listener',
     author='Aliebc',
     version='0.0.1',
@@ -44,9 +45,13 @@ def loop(fargs):
     return True
 
 @app.sender()
-def sendto(message: PIAResponseMessage):
+def sendto(message: PIAResponse):
+    global nw
+    print(message)
+    message = message.messages[0]
     if message.type != 0:
         return False
     txt = message.text
-    nw.send(txt.encode('utf-8'))
+    #a = nw.send(txt.encode('utf-8'))
+    a = print(txt)
     return True
