@@ -150,8 +150,10 @@ def my_send_emails(req:PIARequest = None, func_name = '', func_args = ''):
                     print('Sent to: ' + receiver["useraddress"])
                 except Exception as e:
                     print(f"Error occurred when sending email to {receiver['useraddress']}: {e}")
+        return 'Successful'
     except Exception as e:
         print(f"Error occurred while handling SMTP connection: {e}")
+        return 'Failed, reason: ' + str(e)
 
 @app.mainloop(keep_alive = False)
 def my_mainloop(argv:list = []):
