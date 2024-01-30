@@ -4,7 +4,7 @@ import json
 import time
 import queue
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 
 class PriorityQueue:
     def __init__(self, db_file):
@@ -71,26 +71,18 @@ from email.utils import formataddr
 
 app.register(
     function_name="create_timer",
-    function_description="Set the message to be sent periodically.",
+    function_description="It is used to send a specified message at a specified time.",
     function_parameters={
         "type": "object",
         "properties": {
             "timestamp":{
                 "type":"string",
-                "description":"The timestamp scheduled to send message, measured in milliseconds.For example:1706582445737.",
+                "description":"A timestamp for sending messages at a pre-set time.",
             },
             "content":{
                 "type":"string",
-                "description":"The content of the message to be sent periodically"
+                "description":"The content of the message to be sent periodically."
             },
-            # "t_uid":{
-            #     "type":"string",
-            #     "description":"t_uid in dialogue; Format : Field(None, alias='t_uid', pattern=r'^[a-zA-Z0-9_]+$')"
-            # },
-            # "t_uname":{
-            #     "type":"string",
-            #     "description":"t_uname in dialogue; Format : Field(None, alias='t_uname', min_length=1, max_length=100)')"
-            # }
         },
         'required': ['timestamp','content']
     }
@@ -102,12 +94,16 @@ def creat_timer(req:PIARequest=None, func_name = '', func_args = ''):
     args = json.loads(func_args)
     timestamp=args['timestamp']
     content=args['content']
-    # t_uid="6f92a4d84bfaee14e1b33f01f693a131"
-    # t_uname="PIA-Tester"
-    t_uid=args['t_uid']
-    print("get message:",timestamp,content,t_uid)
+    t_uid=req.uid
+    print("get message:",int(time.time()),timestamp,content,t_uid)
     priority_queue.push(timestamp,json.dumps({"content":content,"t_uid":t_uid}))
 
+def timestamp_to_beijing_time(timestamp):
+    utc_datetime = datetime.utcfromtimestamp(timestamp).replace(tzinfo=timezone.utc)
+    beijing_timezone = timezone(timedelta(hours=8))
+    beijing_datetime = utc_datetime.astimezone(beijing_timezone)
+    beijing_time_str = beijing_datetime.strftime('%Y-%m-%d %H:%M:%S')
+    return beijing_time_str
 
 @app.mainloop(keep_alive = False)
 def my_mainloop(argv:list = []):
@@ -121,8 +117,10 @@ def my_mainloop(argv:list = []):
         else:
             nowtime = int(time.time()*1000)
             if nowtime>=nextmessage[0]:
-                date_time = datetime.utcfromtimestamp(nextmessage[0] / 1000)  # 将毫秒转换为秒并创建 datetime 对象
-                formatted_date_time = date_time.strftime('%Y-%m-%d %H:%M:%S')
+                # date_time = datetime.utcfromtimestamp()  # 将毫秒转换为秒并创建 datetime 对象
+                # formatted_date_time = date_time.strftime('%Y-%m-%d %H:%M:%S')
+                formatted_date_time = timestamp_to_beijing_time(nextmessage[0])
+                print(formatted_date_time)
                 print(nextmessage)
                 content = json.loads(nextmessage[1])
                 app.callback(PIAResponse(
@@ -141,12 +139,7 @@ def my_mainloop(argv:list = []):
 
 
 if __name__ == '__main__':
-    scheduled_time = int(time.time()*1000+2000)
+    scheduled_time = int(time.time()+2)
     content = '这是第一个定时任务'
     priority_queue.push(scheduled_time,json.dumps({"content":content,"t_uid":"123456"}))
     app.mainloop_handler()
-    # priority_queue.push('Task 2', 1)
-    # print(priority_queue.try_pop())  # 输出：Task 2
-    # print(priority_queue.pop())  # 输出：Task 1
-    #单独测试的时候直接运行这个文件
-    # app.function_lists['create_timer']['handler']()
