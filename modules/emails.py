@@ -112,13 +112,20 @@ def smtp_login_obj(username,password):#password有时候要求是授权码
 
 def gen_content_obj(content):#password有时候要求是授权码
     msg = MIMEMultipart()
-    msg['Subject'] = content['title']
-    text = MIMEText(content["text"], 'html', 'utf-8')
-    msg.attach(text)
-    for attachment in content["attachments"]:
-        obj = MIMEApplication(attachment["content"].encode('utf-8'))
-        obj.add_header('Content-Disposition', 'attachment', filename=attachment["name"])
-        msg.attach(obj)
+    try:
+        msg['Subject'] = content['title']
+        text = MIMEText(content["text"], 'html', 'utf-8')
+        msg.attach(text)
+    except Exception as e:
+        print(f"Error occurred : {e}")
+    if "attachments" in content:
+        try:
+            for attachment in content["attachments"]:
+                obj = MIMEApplication(attachment["content"].encode('utf-8'))
+                obj.add_header('Content-Disposition', 'attachment', filename=attachment["name"])
+                msg.attach(obj)
+        except Exception as e:
+            print(f"Error occurred : {e}")
     return msg
 
 @app.handler(func_list=['send_emails'])
