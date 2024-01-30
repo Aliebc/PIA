@@ -9,8 +9,8 @@ app = PIAModule(
     author='hzh',
     version='0.0.1',
 )
-test_receiver = {"name":"hzh","useraddress":"2234067636@qq.com"}
-test_sender = {"name":"人工智障","useraddress":"2518146478@qq.com","password":"foasmvdvoxgeebde"}
+test_receiver = {"name":"xxx","useraddress":"xxx"}
+test_sender = {"name":"人工智障","useraddress":"xxx","password":"xxxxx"}
 test_content = {
                 "title":"这是一个标题",
                 "text":"这是正文",
