@@ -24,6 +24,7 @@ import signal
 import time
 import pickle
 import copy
+import traceback
 
 from openai import OpenAI
 
@@ -36,8 +37,9 @@ Usage: {} [options] [args]
 -m, --module    Load agents/modules from py file [default: None].
 -l, --listen    Load frontend listener from py file [default: None].
 --show-config   Show configure info.
+--debug         Show debug info.
 --daemon        Start daemon mode. (Linux/MacOS only)
---server        Setup a simple socket server to debug PIA.
+--socket        Setup a simple socket server to debug PIA.
 """.format(platform.platform(),sys.argv[0])
 
 class PIASettings(BaseModel):
@@ -53,7 +55,8 @@ class PIASettings(BaseModel):
     listeners: List[PIAListener] = []
     listeners_process: List = []
     daemon: bool = False
-    server: list = None
+    server: bool = False
+    debug: bool = False
     
 g_settings = PIASettings()
 
@@ -62,11 +65,13 @@ def show_help():
     sys.exit()
     
 def daemon():
+    raise NotImplementedError('Daemon mode is not implemented yet.')
     if not hasattr(os, 'fork'):
         print('DaemonError: Your system does not support daemon mode.')
         sys.exit(1)
     pd = os.fork()
     if pd > 0:
+        print('Daemon: PIA is running in daemon mode. [{}]'.format(pd))
         sys.exit(0)
     os.close(0)
     os.close(1)
@@ -163,11 +168,26 @@ def main_exec(tp):
         u_prompt = ''
         uname = tname
         for d in df:
+            if d[6] == 0:
+                uname = d[0]
+        mess_struct = PIARequest(
+            uid = tname,
+            uname = uname
+        )
+        for d in df:
             if d[1] == 0:
                 ti: str = time.strftime("%Y-%m-%d %H时%M分%S秒", time.localtime(d[4]/1000))
                 u_prompt += d[0] + f"({ti})" + ": " + d[2] + "\n"
-            if d[6]!= 0:
-                uname = d[0]
+                mess_struct.messages.append(
+                    PIAMessage(
+                        uid = tname,
+                        uname = d[0],
+                        text = d[2],
+                        type = d[1],
+                        is_ai = d[6],
+                        timestamp = d[4]
+                    )
+                )
         mess = [
         {
                     "role" : "system",
@@ -194,7 +214,7 @@ def main_exec(tp):
                 caller = my_tools_table[tool_call.function.name]['handler']
                 args = tool_call.function.arguments
                 resp = caller(
-                    PIARequest(), 
+                    mess_struct, 
                     tool_call.function.name, 
                     tool_call.function.arguments
                 )
@@ -211,7 +231,7 @@ def main_exec(tp):
             mess.append(comp.choices[0].message)
         respT = comp.choices[0].message.content
     except Exception as e:
-        print(e)
+        traceback.print_exc()
         respT = settings.c.context.error_format.format(str(e))
     db.execute(
         '''
@@ -225,9 +245,9 @@ def main_exec(tp):
             0,
             1,
             1,
-            'openai',
-            comp.usage.total_tokens,
-            comp.usage.prompt_tokens
+            'OpenAI',
+            0 if not comp else comp.usage.total_tokens,
+            0 if not comp else comp.usage.prompt_tokens
         )
     )
     db.commit()
@@ -378,7 +398,8 @@ if __name__ == '__main__':
             'show-config', 
             'module=', 
             'daemon',
-            'server=',
+            'debug',
+            'socket',
             'listen=']
         )
     except GetoptError as e:
@@ -401,8 +422,12 @@ if __name__ == '__main__':
         elif opt == '-l' or opt == '--listen':
             if arg not in g_settings.listen_lists:
                 g_settings.listen_lists.append(arg)
-        elif opt == '--server':
-            g_settings.server = arg
+        elif opt == '--socket':
+            g_settings.server = True
+        elif opt == '--debug':
+            g_settings.debug = True
+        elif opt == '--daemon':
+            g_settings.daemon = True
     if g_settings.config_file != 'None':
         try:
             c: Configure = Configure()
@@ -420,7 +445,7 @@ if __name__ == '__main__':
     if g_settings.show_help:
         show_help()
     if g_settings.server:
-        g_settings.listen_lists = ['listeners.lsocket:app']
+        g_settings.listen_lists.append('listeners.lsocket:app')
     if True:
         for m in g_settings.module_lists:
             try:
@@ -461,9 +486,9 @@ if __name__ == '__main__':
         rprint('Modules: {}'.format(g_settings.modules))
         rprint('Listeners: {}'.format(g_settings.listeners))
         sys.exit()
-    if len(g_settings.module_lists) == 0 and len(g_settings.listen_lists) == 0:
+    if len(g_settings.listen_lists) == 0:
         show_version()
-        print('You should add at least one module and listener.')
+        print('You should add at least one listener.')
         print('Use -h or --help for help.')
         sys.exit()
     if g_settings.daemon:

@@ -3,11 +3,12 @@
 # Date: 2024-01-25
 #######################
 
-__all__ = ['Configure']
+__all__ = ['BaseConfig']
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, ClassVar
 from multiprocess import Process
+import multiprocess as PIAProcess
 
 class BaseConfig(BaseModel):
     def __init__(self, *args, **kwargs):
@@ -78,7 +79,7 @@ class PIAMessage(BaseModel):
 class PIARequest(BaseModel):
     uid: str = Field(None, alias='uid', pattern=r'^[a-zA-Z0-9_]+$')
     source: str = Field(None, alias='source', min_length=1, max_length=100)
-    messages: List[PIAMessage] = Field(None, alias='messages')
+    messages: List[PIAMessage] = Field([], alias='messages')
     
 class PIAResponseMessage(BaseModel):
     uname: str = Field(None, alias='uname', min_length=1, max_length=100)
@@ -224,6 +225,8 @@ class PIAListener(BaseModel):
     i_mainloop:Callable = lambda *args, **kwargs: None
     keep_alive: bool = True
     mainloop_args: list = []
+    i_mainloop_args: list = []
+    i_mainloop_kwargs: dict = {}
     ps: list = []
     def __init__(self, 
         uuid,
@@ -259,6 +262,8 @@ class PIAListener(BaseModel):
     def mainloop(self, keep_alive = True, *args, **kwargs):
         def wrapper(func):
             self.i_mainloop = func
+            self.i_mainloop_args = args
+            self.i_mainloop_kwargs = kwargs
             if keep_alive:
                 def wrapper2(*args, **kwargs):
                     while True:
@@ -280,7 +285,16 @@ class PIAListener(BaseModel):
         self.mainloop_args = args
         
     def run(self):
-        ps = Process(target=self.i_mainloop, args=(self.mainloop_args,))
+        p_args = ()
+        if self.i_mainloop.__code__.co_argcount == 1:
+            p_args = (self.mainloop_args,)
+        elif self.i_mainloop.__code__.co_argcount == 2:
+            p_args = (self.mainloop_args, self.i_mainloop_args)
+        elif self.i_mainloop.__code__.co_argcount == 3:
+            p_args = (self.mainloop_args, self.i_mainloop_args, self.i_mainloop_kwargs)
+        else:
+            raise PIAError('Too many arguments in mainloop function.{}'.format(self))
+        ps = Process(target=self.i_mainloop, args=p_args)
         self.ps.append(ps)
         ps.start()
         return ps

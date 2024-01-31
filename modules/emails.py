@@ -114,7 +114,7 @@ def gen_content_obj(content):#password有时候要求是授权码
     msg = MIMEMultipart()
     try:
         msg['Subject'] = content['title']
-        text = MIMEText(content["text"], 'html', 'utf-8')
+        text = MIMEText(content["text"], 'plain', 'utf-8')
         msg.attach(text)
     except Exception as e:
         print(f"Error occurred : {e}")
