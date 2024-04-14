@@ -25,8 +25,7 @@ import time
 import pickle
 import copy
 import traceback
-
-from openai import OpenAI
+from backend import ai
 
 HELP_TEXT = """PIA - Intelligent Assistant ({})
 Usage: {} [options] [args]
@@ -150,10 +149,12 @@ def main_exec(tp):
         return "Waiting"
     respT = ""
     try:
+        '''
         ai = OpenAI(
             api_key = settings.c.openai.api_key,
             base_url = settings.c.openai.api_base
         )
+        '''
         my_tools = []
         my_tools_table = {}
         for m in settings.modules:
@@ -230,9 +231,12 @@ def main_exec(tp):
             )
             mess.append(comp.choices[0].message)
         respT = comp.choices[0].message.content
+        if respT.startswith('ME') or respT.startswith('小刘'):
+            respT = respT[respT.find(':')+1:]
     except Exception as e:
         traceback.print_exc()
         respT = settings.c.context.error_format.format(str(e))
+        comp = None
     db.execute(
         '''
         INSERT INTO chat_{} (NAME, TEXT, TIME, IS_MENTIONED, IS_ME, IS_AI, LISTENER, TOKENS_ALL, TOKENS_PROMPT) 
