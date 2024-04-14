@@ -6,7 +6,7 @@
 __all__ = ['BaseConfig']
 
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Callable, ClassVar
+from typing import List, Optional, Callable, ClassVar, Literal
 from multiprocess import Process
 import multiprocess as PIAProcess
 
@@ -17,6 +17,9 @@ class BaseConfig(BaseModel):
 class OpenAIConfig(BaseConfig):
     api_key: str = '<None>'
     api_base: str = 'https://api.openai.com/v1'
+    api_type: Literal['openai', 'azure'] = 'openai'
+    api_version: str = ''
+    azure_endpoint: str = ''
     
 class ContextConfig(BaseConfig):
     model: str = 'gpt-4'

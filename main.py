@@ -149,12 +149,6 @@ def main_exec(tp):
         return "Waiting"
     respT = ""
     try:
-        '''
-        ai = OpenAI(
-            api_key = settings.c.openai.api_key,
-            base_url = settings.c.openai.api_base
-        )
-        '''
         my_tools = []
         my_tools_table = {}
         for m in settings.modules:
